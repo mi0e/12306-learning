@@ -53,14 +53,17 @@ public final class IdempotentSpELByRestAPIExecuteHandler extends AbstractIdempot
 
     @Override
     public void handler(IdempotentParamWrapper wrapper) {
+        // redis 分布式锁
         String uniqueKey = wrapper.getIdempotent().uniqueKeyPrefix() + wrapper.getLockKey();
         RLock lock = redissonClient.getLock(uniqueKey);
         if (!lock.tryLock()) {
+            // 从注解中获取幂等性验证失败时的提示信息
             throw new ClientException(wrapper.getIdempotent().message());
         }
         IdempotentContext.put(LOCK, lock);
     }
 
+    // 后置处理器，释放锁
     @Override
     public void postProcessing() {
         RLock lock = null;
@@ -73,6 +76,7 @@ public final class IdempotentSpELByRestAPIExecuteHandler extends AbstractIdempot
         }
     }
 
+    // 异常处理器，释放锁
     @Override
     public void exceptionProcessing() {
         RLock lock = null;

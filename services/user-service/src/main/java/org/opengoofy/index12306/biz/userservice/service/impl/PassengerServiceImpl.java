@@ -72,21 +72,27 @@ public class PassengerServiceImpl implements PassengerService {
     public List<PassengerRespDTO> listPassengerQueryByUsername(String username) {
         String actualUserPassengerListStr = getActualUserPassengerListStr(username);
         return Optional.ofNullable(actualUserPassengerListStr)
+                // 反序列化为 List<PassengerDO>
                 .map(each -> JSON.parseArray(each, PassengerDO.class))
+                // 转换为 List<PassengerRespDTO>
                 .map(each -> BeanUtil.convert(each, PassengerRespDTO.class))
                 .orElse(null);
     }
 
     private String getActualUserPassengerListStr(String username) {
         return  distributedCache.safeGet(
+                // redis key
                 USER_PASSENGER_LIST + username,
+                // redis value类型
                 String.class,
+                // 当缓存不存在时，从此方法中获取数据
                 () -> {
                     LambdaQueryWrapper<PassengerDO> queryWrapper = Wrappers.lambdaQuery(PassengerDO.class)
                             .eq(PassengerDO::getUsername, username);
                     List<PassengerDO> passengerDOList = passengerMapper.selectList(queryWrapper);
                     return CollUtil.isNotEmpty(passengerDOList) ? JSON.toJSONString(passengerDOList) : null;
                 },
+                // 缓存过期时间
                 1,
                 TimeUnit.DAYS
         );
@@ -98,6 +104,7 @@ public class PassengerServiceImpl implements PassengerService {
         if (StrUtil.isEmpty(actualUserPassengerListStr)) {
             return null;
         }
+        // 从乘车人列表筛出 ids 集合中的乘车人
         return JSON.parseArray(actualUserPassengerListStr, PassengerDO.class)
                 .stream().filter(passengerDO -> ids.contains(passengerDO.getId()))
                 .map(each -> BeanUtil.convert(each, PassengerActualRespDTO.class))

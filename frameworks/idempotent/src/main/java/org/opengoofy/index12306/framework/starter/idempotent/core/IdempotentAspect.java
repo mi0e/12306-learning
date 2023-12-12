@@ -38,12 +38,17 @@ public final class IdempotentAspect {
      */
     @Around("@annotation(org.opengoofy.index12306.framework.starter.idempotent.annotation.Idempotent)")
     public Object idempotentHandler(ProceedingJoinPoint joinPoint) throws Throwable {
+        // 获取需要幂等处理的方法的注解
         Idempotent idempotent = getIdempotent(joinPoint);
+        // 从工厂中获取对应的幂等处理器
         IdempotentExecuteHandler instance = IdempotentExecuteHandlerFactory.getInstance(idempotent.scene(), idempotent.type());
         Object resultObj;
         try {
+            // 幂等处理
             instance.execute(joinPoint, idempotent);
+            // 执行业务逻辑
             resultObj = joinPoint.proceed();
+            // 后置处理
             instance.postProcessing();
         } catch (RepeatConsumptionException ex) {
             /**
@@ -65,6 +70,7 @@ public final class IdempotentAspect {
         return resultObj;
     }
 
+    // 获取需要幂等处理的方法的注解
     public static Idempotent getIdempotent(ProceedingJoinPoint joinPoint) throws NoSuchMethodException {
         MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
         Method targetMethod = joinPoint.getTarget().getClass().getDeclaredMethod(methodSignature.getName(), methodSignature.getMethod().getParameterTypes());

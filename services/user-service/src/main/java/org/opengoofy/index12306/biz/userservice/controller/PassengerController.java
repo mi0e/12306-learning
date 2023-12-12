@@ -68,10 +68,15 @@ public class PassengerController {
      * 新增乘车人
      */
     @Idempotent(
+            // 乘车人新增幂等性校验 key
             uniqueKeyPrefix = "index12306-user:lock_passenger-alter:",
+            // SpEL 表达式，获取当前登录用户的用户名
             key = "T(org.opengoofy.index12306.frameworks.starter.user.core.UserContext).getUsername()",
+            // 幂等性校验类型
             type = IdempotentTypeEnum.SPEL,
+            // 幂等性校验场景
             scene = IdempotentSceneEnum.RESTAPI,
+            // 幂等性校验失败时的提示信息
             message = "正在新增乘车人，请稍后再试..."
     )
     @PostMapping("/api/user-service/passenger/save")

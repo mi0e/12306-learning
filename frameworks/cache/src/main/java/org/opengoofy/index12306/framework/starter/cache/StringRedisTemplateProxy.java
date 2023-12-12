@@ -146,6 +146,7 @@ public class StringRedisTemplateProxy implements DistributedCache {
     @Override
     public <T> T safeGet(String key, Class<T> clazz, CacheLoader<T> cacheLoader, long timeout, TimeUnit timeUnit,
                          RBloomFilter<String> bloomFilter, CacheGetFilter<String> cacheGetFilter, CacheGetIfAbsent<String> cacheGetIfAbsent) {
+        // 先读redis缓存
         T result = get(key, clazz);
         // 缓存结果不等于空或空字符串直接返回；通过函数判断是否返回空，为了适配布隆过滤器无法删除的场景；两者都不成立，判断布隆过滤器是否存在，不存在返回空
         if (!CacheUtil.isNullOrBlank(result)
@@ -209,11 +210,15 @@ public class StringRedisTemplateProxy implements DistributedCache {
     }
 
     private <T> T loadAndSet(String key, CacheLoader<T> cacheLoader, long timeout, TimeUnit timeUnit, boolean safeFlag, RBloomFilter<String> bloomFilter) {
+        // 从cacheLoader加载数据
         T result = cacheLoader.load();
+        // 如果加载数据为空，直接返回
         if (CacheUtil.isNullOrBlank(result)) {
             return result;
         }
+        // 放入缓存
         if (safeFlag) {
+            // 存在布隆过滤器
             safePut(key, result, timeout, timeUnit, bloomFilter);
         } else {
             put(key, result, timeout, timeUnit);
