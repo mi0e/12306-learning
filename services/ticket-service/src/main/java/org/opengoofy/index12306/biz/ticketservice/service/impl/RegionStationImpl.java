@@ -67,6 +67,7 @@ public class RegionStationImpl implements RegionStationService {
     @Override
     public List<RegionStationQueryRespDTO> listRegionStation(RegionStationQueryReqDTO requestParam) {
         String key;
+        // 当只有 name 参数时，判断是否为车站名称或者拼音
         if (StrUtil.isNotBlank(requestParam.getName())) {
             key  = REGION_STATION  + requestParam.getName();
             return safeGetRegionStation(
@@ -82,6 +83,7 @@ public class RegionStationImpl implements RegionStationService {
                     requestParam.getName()
             );
         }
+        // 0-5 对应为 热门、A-E、F-J、K-O、P-T、U-Z
         key  = REGION_STATION  + requestParam.getQueryType();
         LambdaQueryWrapper<RegionDO> queryWrapper = switch (requestParam.getQueryType()) {
             case 0 -> Wrappers.lambdaQuery(RegionDO.class)
@@ -121,6 +123,7 @@ public class RegionStationImpl implements RegionStationService {
 
     private  List<RegionStationQueryRespDTO> safeGetRegionStation(final String key, CacheLoader<String> loader, String param) {
         List<RegionStationQueryRespDTO> result;
+        // 从缓存中获取
         if (CollUtil.isNotEmpty(result = JSON.parseArray(distributedCache.get(key, String.class), RegionStationQueryRespDTO.class))) {
             return result;
         }
@@ -128,7 +131,9 @@ public class RegionStationImpl implements RegionStationService {
         RLock lock = redissonClient.getLock(lockKey);
         lock.lock();
         try {
+            // 缓存未命中，从数据库中获取
             if (CollUtil.isEmpty(result = JSON.parseArray(distributedCache.get(key, String.class), RegionStationQueryRespDTO.class))) {
+                // 数据库中也没有，直接返回空集合
                 if (CollUtil.isEmpty(result = loadAndSet(key, loader))) {
                     return Collections.emptyList();
                 }
@@ -140,11 +145,15 @@ public class RegionStationImpl implements RegionStationService {
     }
 
     private List<RegionStationQueryRespDTO> loadAndSet(final String key, CacheLoader<String> loader) {
+        // 数据库中获取
         String result = loader.load();
+        // 判断是否为空
         if (CacheUtil.isNullOrBlank(result)) {
             return Collections.emptyList();
         }
+        // 解析为对象
         List<RegionStationQueryRespDTO> respDTOList = JSON.parseArray(result, RegionStationQueryRespDTO.class);
+        // 写入缓存
         distributedCache.put(
                 key,
                 result,

@@ -60,6 +60,7 @@ public final class IdempotentSpELByRestAPIExecuteHandler extends AbstractIdempot
             // 从注解中获取幂等性验证失败时的提示信息
             throw new ClientException(wrapper.getIdempotent().message());
         }
+        // 将锁放入上下文
         IdempotentContext.put(LOCK, lock);
     }
 
@@ -68,6 +69,7 @@ public final class IdempotentSpELByRestAPIExecuteHandler extends AbstractIdempot
     public void postProcessing() {
         RLock lock = null;
         try {
+            // 从上下文中获取锁
             lock = (RLock) IdempotentContext.getKey(LOCK);
         } finally {
             if (lock != null) {
