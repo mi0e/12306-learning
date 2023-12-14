@@ -55,6 +55,8 @@ public final class AbstractChainContext<T> implements CommandLineRunner {
         abstractChainHandlers.forEach(each -> each.handler(requestParam));
     }
 
+    // 运行时初始化责任链容器
+    // 通过责任链继承的方式，将责任链组件标识和责任链组件实现类绑定
     @Override
     public void run(String... args) throws Exception {
         // 从 ApplicationContextHolder 获取所有的 AbstractChainHandler 实现类

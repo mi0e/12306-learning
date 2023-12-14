@@ -32,6 +32,7 @@ public class TrainTicketQueryParamNotNullChainFilter implements TrainTicketQuery
 
     @Override
     public void handler(TicketPageQueryReqDTO requestParam) {
+        // 非空校验
         if (StrUtil.isBlank(requestParam.getFromStation())) {
             throw new ClientException("出发地不能为空");
         }

@@ -57,6 +57,7 @@ public class TrainTicketQueryParamVerifyChainFilter implements TrainTicketQueryC
     private final RedissonClient redissonClient;
 
     /**
+     * 第一次加载
      * 缓存数据为空并且已经加载过标识
      */
     private static boolean CACHE_DATA_ISNULL_AND_LOAD_FLAG = false;
@@ -64,21 +65,29 @@ public class TrainTicketQueryParamVerifyChainFilter implements TrainTicketQueryC
     @Override
     public void handler(TicketPageQueryReqDTO requestParam) {
         StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
+        // 获取redis hash操作对象
         HashOperations<String, Object, Object> hashOperations = stringRedisTemplate.opsForHash();
+        // 通过操作对象，拿取 QUERY_ALL_REGION_LIST 缓存数据
         List<Object> actualExistList = hashOperations.multiGet(
                 QUERY_ALL_REGION_LIST,
                 ListUtil.toList(requestParam.getFromStation(), requestParam.getToStation())
         );
+        // 判断空的个数
         long emptyCount = actualExistList.stream().filter(Objects::isNull).count();
         if (emptyCount == 0L) {
             return;
         }
+        // 如果有一个为空，抛出异常
+        // 两个都为空，缓存数据已经加载过，并且存在 QUERY_ALL_REGION_LIST 缓存，抛出异常
         if (emptyCount == 1L || (emptyCount == 2L && CACHE_DATA_ISNULL_AND_LOAD_FLAG && distributedCache.hasKey(QUERY_ALL_REGION_LIST))) {
             throw new ClientException("出发地或目的地不存在");
         }
+        // 更新缓存数据
         RLock lock = redissonClient.getLock(LOCK_QUERY_ALL_REGION_LIST);
         lock.lock();
         try {
+            // 缓存为空
+            // A线程获取锁，B线程等待，A线程更新缓存，B线程获取锁，判断缓存数据已经加载过，直接返回
             if (distributedCache.hasKey(QUERY_ALL_REGION_LIST)) {
                 actualExistList = hashOperations.multiGet(
                         QUERY_ALL_REGION_LIST,
@@ -90,8 +99,10 @@ public class TrainTicketQueryParamVerifyChainFilter implements TrainTicketQueryC
                 }
                 return;
             }
+            // 获取所有的地区和车站
             List<RegionDO> regionDOList = regionMapper.selectList(Wrappers.emptyWrapper());
             List<StationDO> stationDOList = stationMapper.selectList(Wrappers.emptyWrapper());
+            // 关系映射
             HashMap<Object, Object> regionValueMap = Maps.newHashMap();
             for (RegionDO each : regionDOList) {
                 regionValueMap.put(each.getCode(), each.getName());
@@ -99,8 +110,10 @@ public class TrainTicketQueryParamVerifyChainFilter implements TrainTicketQueryC
             for (StationDO each : stationDOList) {
                 regionValueMap.put(each.getCode(), each.getName());
             }
+            // 写入缓存，并且更新标识
             hashOperations.putAll(QUERY_ALL_REGION_LIST, regionValueMap);
             CACHE_DATA_ISNULL_AND_LOAD_FLAG = true;
+            // 判断是否存在起始地和目的地
             emptyCount = regionValueMap.keySet().stream()
                     .filter(each -> StrUtil.equalsAny(each.toString(), requestParam.getFromStation(), requestParam.getToStation()))
                     .count();
