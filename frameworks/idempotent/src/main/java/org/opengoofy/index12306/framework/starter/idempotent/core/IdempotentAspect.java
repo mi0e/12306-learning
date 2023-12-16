@@ -65,6 +65,7 @@ public final class IdempotentAspect {
             instance.exceptionProcessing();
             throw ex;
         } finally {
+            // 清理ThreadLocal，防止内存泄漏
             IdempotentContext.clean();
         }
         return resultObj;

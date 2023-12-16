@@ -44,13 +44,20 @@ public class Hippo4jThreadPoolConfiguration {
     public ThreadPoolExecutor selectSeatThreadPoolExecutor() {
         String threadPoolId = "select-seat-thread-pool-executor";
         return ThreadPoolBuilder.builder()
+                // 线程池ID
                 .threadPoolId(threadPoolId)
+                // 线程池名称
                 .threadFactory(threadPoolId)
+                // 阻塞队列类型 - 同步队列
                 .workQueue(BlockingQueueTypeEnum.SYNCHRONOUS_QUEUE)
+                // 核心线程数
                 .corePoolSize(24)
+                // 最大线程数
                 .maximumPoolSize(36)
+                // 线程空闲时间
                 .allowCoreThreadTimeOut(true)
                 .keepAliveTime(60, TimeUnit.MINUTES)
+                // 拒绝策略 - 调用者运行
                 .rejected(new ThreadPoolExecutor.CallerRunsPolicy())
                 .dynamicPool()
                 .build();

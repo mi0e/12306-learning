@@ -95,6 +95,7 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
         }
     }
 
+    // 匹配座位
     private Pair<List<TrainPurchaseTicketRespDTO>, Boolean> findMatchSeats(SelectSeatDTO requestParam, List<String> trainCarriageList, List<Integer> trainStationCarriageRemainingTicket) {
         TrainSeatBaseDTO trainSeatBaseDTO = buildTrainSeatBaseDTO(requestParam);
         int chooseSeatSize = trainSeatBaseDTO.getChooseSeatList().size();
