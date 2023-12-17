@@ -65,12 +65,18 @@ public class TrainFirstClassPurchaseTicketHandler extends AbstractTrainPurchaseT
 
     @Override
     protected List<TrainPurchaseTicketRespDTO> selectSeats(SelectSeatDTO requestParam) {
+        // 列车id
         String trainId = requestParam.getRequestParam().getTrainId();
+        // 出发站
         String departure = requestParam.getRequestParam().getDeparture();
+        // 到达站
         String arrival = requestParam.getRequestParam().getArrival();
         List<PurchaseTicketPassengerDetailDTO> passengerSeatDetails = requestParam.getPassengerSeatDetails();
+        // 获取车厢有余票的车厢号集合
         List<String> trainCarriageList = seatService.listUsableCarriageNumber(trainId, requestParam.getSeatType(), departure, arrival);
+        // 获取余票
         List<Integer> trainStationCarriageRemainingTicket = seatService.listSeatRemainingTicket(trainId, departure, arrival, trainCarriageList);
+        // 余票总数
         int remainingTicketSum = trainStationCarriageRemainingTicket.stream().mapToInt(Integer::intValue).sum();
         if (remainingTicketSum < passengerSeatDetails.size()) {
             throw new ServiceException("站点余票不足，请尝试更换座位类型或选择其它站点");
