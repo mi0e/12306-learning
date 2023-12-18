@@ -103,7 +103,7 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
         }
     }
 
-    // 匹配座位
+    // 当选择了座位时，去匹配座位
     private Pair<List<TrainPurchaseTicketRespDTO>, Boolean> findMatchSeats(SelectSeatDTO requestParam, List<String> trainCarriageList, List<Integer> trainStationCarriageRemainingTicket) {
         // 构建座位选择基础信息
         TrainSeatBaseDTO trainSeatBaseDTO = buildTrainSeatBaseDTO(requestParam);
@@ -251,6 +251,7 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
                             AtomicInteger countNum = new AtomicInteger(0);
                             for (Map.Entry<String, List<Pair<Integer, Integer>>> entry : carriagesSeatMap.entrySet()) {
                                 if (sureSeatListSize < passengersNumber) {
+                                    // 当前车厢可用座位可全部分配出去
                                     if (sureSeatListSize + entry.getValue().size() < passengersNumber) {
                                         sureSeatListSize = sureSeatListSize + entry.getValue().size();
                                         List<String> actualSelectSeats = new ArrayList<>();
@@ -297,17 +298,29 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
         return new Pair<>(null, Boolean.FALSE);
     }
 
+    /*
+     * 未选择座位时，根据乘车人员数量进行座位选择
+     * - 如果购票人数为两人，购买同一车厢，座位优先检索两人相邻座位并排分配。
+     *   - 假设当前正在检索的车厢不满足两人并排，就执行搜索全部满足两人并排的车厢。
+     * - 如果搜索了所有车厢还是没有两人并排做的座位，那么执行同车厢不相邻座位。
+     * - 如果所有车厢都是仅有一个座位，就开始执行最后降级操作，不同车厢分配。
+     */
     private List<TrainPurchaseTicketRespDTO> selectSeats(SelectSeatDTO requestParam, List<String> trainCarriageList, List<Integer> trainStationCarriageRemainingTicket) {
         String trainId = requestParam.getRequestParam().getTrainId();
         String departure = requestParam.getRequestParam().getDeparture();
         String arrival = requestParam.getRequestParam().getArrival();
+        // 乘车人员信息
         List<PurchaseTicketPassengerDetailDTO> passengerSeatDetails = requestParam.getPassengerSeatDetails();
+        // 返回结果
         List<TrainPurchaseTicketRespDTO> actualResult = new ArrayList<>();
+        // 降级座位数
         Map<String, Integer> demotionStockNumMap = new LinkedHashMap<>();
         Map<String, int[][]> actualSeatsMap = new HashMap<>();
+        // 车厢号和座位号映射
         Map<String, int[][]> carriagesNumberSeatsMap = new HashMap<>();
         String carriagesNumber;
         for (int i = 0; i < trainStationCarriageRemainingTicket.size(); i++) {
+            // 当前车厢号
             carriagesNumber = trainCarriageList.get(i);
             List<String> listAvailableSeat = seatService.listAvailableSeat(trainId, carriagesNumber, requestParam.getSeatType(), departure, arrival);
             int[][] actualSeats = new int[2][3];
@@ -317,11 +330,13 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
                     actualSeats[j - 1][k - 1] = listAvailableSeat.contains("0" + j + SeatNumberUtil.convert(0, k)) ? 0 : 1;
                 }
             }
+            // 邻近匹配
             int[][] select = SeatSelection.adjacent(passengerSeatDetails.size(), actualSeats);
             if (select != null) {
                 carriagesNumberSeatsMap.put(carriagesNumber, select);
                 break;
             }
+            // 降级前预处理，计算当前车厢座位总数
             int demotionStockNum = 0;
             for (int[] actualSeat : actualSeats) {
                 for (int i1 : actualSeat) {
@@ -360,7 +375,7 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
                 }
             }
         }
-        // 乘车人员在单一车厢座位不满足，触发乘车人元分布在不同车厢
+        // 乘车人员在单一车厢座位不满足，触发乘车人员分布在不同车厢
         int count = (int) carriagesNumberSeatsMap.values().stream()
                 .flatMap(Arrays::stream)
                 .count();
@@ -385,6 +400,7 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
         return actualResult;
     }
 
+    // 未选择座位时的复杂匹配策略 - 商务座选择人数超过3人时执行
     private List<TrainPurchaseTicketRespDTO> selectComplexSeats(SelectSeatDTO requestParam, List<String> trainCarriageList, List<Integer> trainStationCarriageRemainingTicket) {
         String trainId = requestParam.getRequestParam().getTrainId();
         String departure = requestParam.getRequestParam().getDeparture();
@@ -406,8 +422,10 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
                     actualSeats[j - 1][k - 1] = listAvailableSeat.contains("0" + j + SeatNumberUtil.convert(0, k)) ? 0 : 1;
                 }
             }
+            // 深拷贝
             int[][] actualSeatsTranscript = deepCopy(actualSeats);
             List<int[][]> actualSelects = new ArrayList<>();
+            // 每次2位去匹配座位
             List<List<PurchaseTicketPassengerDetailDTO>> splitPassengerSeatDetails = ListUtil.split(passengerSeatDetails, 2);
             for (List<PurchaseTicketPassengerDetailDTO> each : splitPassengerSeatDetails) {
                 int[][] select = SeatSelection.adjacent(each.size(), actualSeatsTranscript);

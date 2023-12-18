@@ -33,6 +33,7 @@ public class SeatSelection {
         int numRows = seatLayout.length;
         int numCols = seatLayout[0].length;
         List<int[]> selectedSeats = new ArrayList<>();
+        // 邻近座位遍历
         for (int i = 0; i < numRows; i++) {
             for (int j = 0; j < numCols; j++) {
                 if (seatLayout[i][j] == 0) {
@@ -59,6 +60,7 @@ public class SeatSelection {
                 break;
             }
         }
+        // 无法找到邻近座位
         if (CollUtil.isEmpty(selectedSeats)) {
             return null;
         }
