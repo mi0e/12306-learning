@@ -451,6 +451,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                         .ticketStatus(TicketStatusEnum.UNPAID.getCode())
                         .build())
                 .toList();
+        // 批量提交
         saveBatch(ticketDOList);
         Result<String> ticketOrderResult;
         try {

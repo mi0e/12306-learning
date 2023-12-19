@@ -84,6 +84,7 @@ public final class DelayCloseOrderConsumer implements RocketMQListener<MessageWr
             log.error("[延迟关闭订单] 订单号：{} 远程调用订单服务失败", orderSn, ex);
             throw ex;
         }
+        // 关闭成功，并且不是binlog同步的消息才需要回滚
         if (closedTickOrder.isSuccess() && !StrUtil.equals(ticketAvailabilityCacheUpdateType, "binlog")) {
             if (!closedTickOrder.getData()) {
                 log.info("[延迟关闭订单] 订单号：{} 用户已支付订单", orderSn);
@@ -94,12 +95,14 @@ public final class DelayCloseOrderConsumer implements RocketMQListener<MessageWr
             String arrival = delayCloseOrderEvent.getArrival();
             List<TrainPurchaseTicketRespDTO> trainPurchaseTicketResults = delayCloseOrderEvent.getTrainPurchaseTicketResults();
             try {
+                // 释放座位
                 seatService.unlock(trainId, departure, arrival, trainPurchaseTicketResults);
             } catch (Throwable ex) {
                 log.error("[延迟关闭订单] 订单号：{} 回滚列车DB座位状态失败", orderSn, ex);
                 throw ex;
             }
             try {
+                // 回滚缓存
                 StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
                 Map<Integer, List<TrainPurchaseTicketRespDTO>> seatTypeMap = trainPurchaseTicketResults.stream()
                         .collect(Collectors.groupingBy(TrainPurchaseTicketRespDTO::getSeatType));
