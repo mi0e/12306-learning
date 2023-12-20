@@ -390,11 +390,14 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         // 写了详细的 v2 版本购票升级指南，欢迎查阅 https://nageoffer.com/12306/question
         List<ReentrantLock> localLockList = new ArrayList<>();
         List<RLock> distributedLockList = new ArrayList<>();
+        // 通过座位类型分组，获取到每个座位类型对应的乘客信息
         Map<Integer, List<PurchaseTicketPassengerDetailDTO>> seatTypeMap = requestParam.getPassengers().stream()
                 .collect(Collectors.groupingBy(PurchaseTicketPassengerDetailDTO::getSeatType));
+        // 构造本地锁和分布式锁
         seatTypeMap.forEach((searType, count) -> {
             String lockKey = environment.resolvePlaceholders(String.format(LOCK_PURCHASE_TICKETS_V2, requestParam.getTrainId(), searType));
             ReentrantLock localLock = localLockMap.getIfPresent(lockKey);
+            // 双重检查锁
             if (localLock == null) {
                 synchronized (TicketService.class) {
                     if ((localLock = localLockMap.getIfPresent(lockKey)) == null) {

@@ -68,6 +68,11 @@ import static org.opengoofy.index12306.biz.ticketservice.common.constant.RedisKe
 @Component
 @RequiredArgsConstructor
 public final class TicketAvailabilityTokenBucket {
+    /*
+     *  1. 如果令牌容器在缓存中失效需要重新读取并放入缓存；
+     *  2. 准备执行 Lua 脚本的数据；
+     *  3. 最终的执行 Lua 脚本获取令牌。
+     */
 
     private final TrainStationService trainStationService;
     private final DistributedCache distributedCache;
@@ -87,17 +92,20 @@ public final class TicketAvailabilityTokenBucket {
      * @return 是否获取列车车票余量令牌桶中的令牌，{@link Boolean#TRUE} or {@link Boolean#FALSE}
      */
     public boolean takeTokenFromBucket(PurchaseTicketReqDTO requestParam) {
+        // 获取列车信息
         TrainDO trainDO = distributedCache.safeGet(
                 TRAIN_INFO + requestParam.getTrainId(),
                 TrainDO.class,
                 () -> trainMapper.selectById(requestParam.getTrainId()),
                 ADVANCE_TICKET_DAY,
                 TimeUnit.DAYS);
+        // 获取列车途径站点信息
         List<RouteDTO> routeDTOList = trainStationService
                 .listTrainStationRoute(requestParam.getTrainId(), trainDO.getStartStation(), trainDO.getEndStation());
         StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
         String actualHashKey = TICKET_AVAILABILITY_TOKEN_BUCKET + requestParam.getTrainId();
         Boolean hasKey = distributedCache.hasKey(actualHashKey);
+        // 先判断容器是否存在，不存在则需要重新构建
         if (!hasKey) {
             RLock lock = redissonClient.getLock(String.format(LOCK_TICKET_AVAILABILITY_TOKEN_BUCKET, requestParam.getTrainId()));
             lock.lock();
@@ -108,6 +116,7 @@ public final class TicketAvailabilityTokenBucket {
                     Map<String, String> ticketAvailabilityTokenMap = new HashMap<>();
                     for (RouteDTO each : routeDTOList) {
                         List<SeatTypeCountDTO> seatTypeCountDTOList = seatMapper.listSeatTypeCount(Long.parseLong(requestParam.getTrainId()), each.getStartStation(), each.getEndStation(), seatTypes);
+                        // 避免多次网络IO，这里组成本地map，最后一次性写入缓存
                         for (SeatTypeCountDTO eachSeatTypeCountDTO : seatTypeCountDTOList) {
                             String buildCacheKey = StrUtil.join("_", each.getStartStation(), each.getEndStation(), eachSeatTypeCountDTO.getSeatType());
                             ticketAvailabilityTokenMap.put(buildCacheKey, String.valueOf(eachSeatTypeCountDTO.getSeatCount()));
@@ -119,13 +128,16 @@ public final class TicketAvailabilityTokenBucket {
                 lock.unlock();
             }
         }
+        // 获取lua脚本
         DefaultRedisScript<Long> actual = Singleton.get(LUA_TICKET_AVAILABILITY_TOKEN_BUCKET_PATH, () -> {
             DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
             redisScript.setScriptSource(new ResourceScriptSource(new ClassPathResource(LUA_TICKET_AVAILABILITY_TOKEN_BUCKET_PATH)));
             redisScript.setResultType(Long.class);
             return redisScript;
         });
+        // 判空
         Assert.notNull(actual);
+        // 根据座位类型分组统计
         Map<Integer, Long> seatTypeCountMap = requestParam.getPassengers().stream()
                 .collect(Collectors.groupingBy(PurchaseTicketPassengerDetailDTO::getSeatType, Collectors.counting()));
         JSONArray seatTypeCountArray = seatTypeCountMap.entrySet().stream()
@@ -139,6 +151,7 @@ public final class TicketAvailabilityTokenBucket {
         List<RouteDTO> takeoutRouteDTOList = trainStationService
                 .listTakeoutTrainStationRoute(requestParam.getTrainId(), requestParam.getDeparture(), requestParam.getArrival());
         String luaScriptKey = StrUtil.join("_", requestParam.getDeparture(), requestParam.getArrival());
+        // 执行lua脚本
         Long result = stringRedisTemplate.execute(actual, Lists.newArrayList(actualHashKey, luaScriptKey), JSON.toJSONString(seatTypeCountArray), JSON.toJSONString(takeoutRouteDTOList));
         return result != null && Objects.equals(result, 0L);
     }
