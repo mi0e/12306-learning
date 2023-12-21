@@ -1,6 +1,17 @@
 server:
   port: 9005
 
+xxl:
+  job:
+    admin:
+      addresses: http://127.0.0.1:8084/xxl-job-admin
+    executor:
+      appname: index12306-ticket-service
+      address:
+      ip:
+      port: 9999
+    accessToken: default_token
+
 spring:
   application:
     name: index12306-aggregation${unique-name:}-service

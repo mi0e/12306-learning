@@ -48,13 +48,18 @@ public abstract class AbstractTrainStationJobHandlerTemplate extends IJobHandler
      */
     protected abstract void actualExecute(List<TrainDO> trainDOPageRecords);
 
+    // xxl-job Bean模式
     @Override
     public void execute() {
         var currentPage = 1L;
         var size = 1000L;
+        // 开发环境下，手动传入请求参数
         var requestParam = getJobRequestParam();
+        // 如果请求参数为空，获取明天的日期
         var dateTime = StrUtil.isNotBlank(requestParam) ? DateUtil.parse(requestParam, "yyyy-MM-dd") : DateUtil.tomorrow();
+        // 获取列车信息
         var trainMapper = ApplicationContextHolder.getBean(TrainMapper.class);
+        // 分页查询列车信息
         for (; ; currentPage++) {
             var queryWrapper = Wrappers.lambdaQuery(TrainDO.class)
                     .between(TrainDO::getDepartureTime, DateUtil.beginOfDay(dateTime), DateUtil.endOfDay(dateTime));
