@@ -1,4 +1,4 @@
-import Mock from 'mockjs'
+yarnimport Mock from 'mockjs'
 //使用mockjs模拟数据
 Mock.mock('/api/login', 'get', () => {
   return {

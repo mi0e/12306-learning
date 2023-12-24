@@ -52,6 +52,7 @@ public final class PayIdGeneratorManager implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() throws Exception {
+        // 获取分布式锁
         String LOCK_KEY = "distributed_pay_id_generator_lock_key";
         RLock lock = redissonClient.getLock(LOCK_KEY);
         lock.lock();

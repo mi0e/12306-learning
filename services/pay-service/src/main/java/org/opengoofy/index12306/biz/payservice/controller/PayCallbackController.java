@@ -50,9 +50,13 @@ public class PayCallbackController {
      */
     @PostMapping("/api/pay-service/callback/alipay")
     public void callbackAlipay(@RequestParam Map<String, Object> requestParam) {
+        // 回调结果映射为支付回调命令
         PayCallbackCommand payCallbackCommand = BeanUtil.mapToBean(requestParam, PayCallbackCommand.class, true, CopyOptions.create());
+        // 设置支付渠道
         payCallbackCommand.setChannel(PayChannelEnum.ALI_PAY.getCode());
+        // 设置支付宝返回交易号
         payCallbackCommand.setOrderRequestId(requestParam.get("out_trade_no").toString());
+        // 设置支付时间
         payCallbackCommand.setGmtPayment(DateUtil.parse(requestParam.get("gmt_payment").toString()));
         PayCallbackRequest payCallbackRequest = PayCallbackRequestConvert.command2PayCallbackRequest(payCallbackCommand);
         /**

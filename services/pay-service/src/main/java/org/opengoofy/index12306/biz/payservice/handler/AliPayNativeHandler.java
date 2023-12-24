@@ -58,20 +58,31 @@ public class AliPayNativeHandler extends AbstractPayHandler implements AbstractE
 
     @SneakyThrows(value = AlipayApiException.class)
     @Override
+    // 重试注解，当发生 ServiceException 异常时，最多重试 3 次，重试间隔为 1000 毫秒，重试次数递增，递增因子为 1.5
     @Retryable(value = ServiceException.class, maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 1.5))
     public PayResponse pay(PayRequest payRequest) {
         AliPayRequest aliPayRequest = payRequest.getAliPayRequest();
         AlipayConfig alipayConfig = BeanUtil.convert(aliPayProperties, AlipayConfig.class);
+        // 实例化支付宝客户端
         AlipayClient alipayClient = new DefaultAlipayClient(alipayConfig);
+        // 实例化支付宝请求对象模型
         AlipayTradePagePayModel model = new AlipayTradePagePayModel();
+        // 设置订单号
         model.setOutTradeNo(aliPayRequest.getOrderSn());
+        // 设置金额
         model.setTotalAmount(aliPayRequest.getTotalAmount().toString());
+        // 设置订单标题： 起始站 - 终点站
         model.setSubject(aliPayRequest.getSubject());
+        // 支付宝产品码
         model.setProductCode("FAST_INSTANT_TRADE_PAY");
+        // 实例化具体支付请求对象
         AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
+        // 设置同步回调地址
         request.setNotifyUrl(aliPayProperties.getNotifyUrl());
+        // 将支付模型放入请求对象中
         request.setBizModel(model);
         try {
+            // 调用支付宝发起支付
             AlipayTradePagePayResponse response = alipayClient.pageExecute(request);
             log.info("发起支付宝支付，订单号：{}，子订单号：{}，订单请求号：{}，订单金额：{} \n调用支付返回：\n\n{}\n",
                     aliPayRequest.getOrderSn(),

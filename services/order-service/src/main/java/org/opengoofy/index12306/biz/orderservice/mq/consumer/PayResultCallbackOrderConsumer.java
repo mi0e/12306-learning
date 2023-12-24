@@ -61,13 +61,17 @@ public class PayResultCallbackOrderConsumer implements RocketMQListener<MessageW
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void onMessage(MessageWrapper<PayResultCallbackOrderEvent> message) {
+        // 取出MQ消息
         PayResultCallbackOrderEvent payResultCallbackOrderEvent = message.getMessage();
+        // 构建订单状态逆转参数
         OrderStatusReversalDTO orderStatusReversalDTO = OrderStatusReversalDTO.builder()
                 .orderSn(payResultCallbackOrderEvent.getOrderSn())
                 .orderStatus(OrderStatusEnum.ALREADY_PAID.getStatus())
                 .orderItemStatus(OrderItemStatusEnum.ALREADY_PAID.getStatus())
                 .build();
+        // 逆转订单状态
         orderService.statusReversal(orderStatusReversalDTO);
+        // 修改订单信息
         orderService.payCallbackOrder(payResultCallbackOrderEvent);
     }
 }

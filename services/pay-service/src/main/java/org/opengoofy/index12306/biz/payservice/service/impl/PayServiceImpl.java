@@ -75,6 +75,7 @@ public class PayServiceImpl implements PayService {
         // 策略模式：通过策略模式封装支付渠道和支付场景，用户支付时动态选择对应的支付组件
         PayResponse result = abstractStrategyChoose.chooseAndExecuteResp(requestParam.buildMark(), requestParam);
         PayDO insertPay = BeanUtil.convert(requestParam, PayDO.class);
+        // 生成支付单号
         String paySn = PayIdGeneratorManager.generateId(requestParam.getOrderSn());
         insertPay.setPaySn(paySn);
         insertPay.setStatus(TradeStatusEnum.WAIT_BUYER_PAY.tradeCode());
@@ -90,9 +91,11 @@ public class PayServiceImpl implements PayService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void callbackPay(PayCallbackReqDTO requestParam) {
+        // 获得支付单
         LambdaQueryWrapper<PayDO> queryWrapper = Wrappers.lambdaQuery(PayDO.class)
                 .eq(PayDO::getOrderSn, requestParam.getOrderSn());
         PayDO payDO = payMapper.selectOne(queryWrapper);
+        // 校验
         if (Objects.isNull(payDO)) {
             log.error("支付单不存在，orderRequestId：{}", requestParam.getOrderRequestId());
             throw new ServiceException("支付单不存在");
@@ -101,6 +104,7 @@ public class PayServiceImpl implements PayService {
         payDO.setStatus(requestParam.getStatus());
         payDO.setPayAmount(requestParam.getPayAmount());
         payDO.setGmtPayment(requestParam.getGmtPayment());
+        // 修改支付单
         LambdaUpdateWrapper<PayDO> updateWrapper = Wrappers.lambdaUpdate(PayDO.class)
                 .eq(PayDO::getOrderSn, requestParam.getOrderSn());
         int result = payMapper.update(payDO, updateWrapper);
@@ -108,7 +112,10 @@ public class PayServiceImpl implements PayService {
             log.error("修改支付单支付结果失败，支付单信息：{}", JSON.toJSONString(payDO));
             throw new ServiceException("修改支付单支付结果失败");
         }
-        // 交易成功，回调订单服务告知支付结果，修改订单流转状态
+        /**
+         * 交易成功，回调订单服务告知支付结果，修改订单流转状态
+         * {@link org.opengoofy.index12306.biz.orderservice.mq.consumer.PayResultCallbackOrderConsumer}
+         */
         if (Objects.equals(requestParam.getStatus(), TradeStatusEnum.TRADE_SUCCESS.tradeCode())) {
             payResultCallbackOrderSendProduce.sendMessage(BeanUtil.convert(payDO, PayResultCallbackOrderEvent.class));
         }

@@ -24,6 +24,8 @@ package org.opengoofy.index12306.biz.payservice.service.payid;
  */
 public class DistributedIdGenerator {
 
+
+    // 2021-01-01 00:00:00 时间戳
     private static final long EPOCH = 1609459200000L;
     private static final int NODE_BITS = 5;
     private static final int SEQUENCE_BITS = 7;
@@ -50,6 +52,7 @@ public class DistributedIdGenerator {
             sequence = 0L;
         }
         lastTimestamp = timestamp;
+        // 12位的时间戳 + 5位的机器ID + 7位的序列号
         return (timestamp << (NODE_BITS + SEQUENCE_BITS)) | (nodeID << SEQUENCE_BITS) | sequence;
     }
 
