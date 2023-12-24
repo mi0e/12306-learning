@@ -58,7 +58,11 @@ public final class IdempotentSpELByMQExecuteHandler extends AbstractIdempotentEx
 
     @Override
     public void handler(IdempotentParamWrapper wrapper) {
+        // 构建唯一幂等 key
         String uniqueKey = wrapper.getIdempotent().uniqueKeyPrefix() + wrapper.getLockKey();
+        // 写入 key 时判断 key 是否存在，防止重复消费
+        // 1. 未消费，设置消费中
+        // 2. 已消费，抛出异常
         Boolean setIfAbsent = ((StringRedisTemplate) distributedCache.getInstance())
                 .opsForValue()
                 .setIfAbsent(uniqueKey, IdempotentMQConsumeStatusEnum.CONSUMING.getCode(), TIMEOUT, TimeUnit.SECONDS);
