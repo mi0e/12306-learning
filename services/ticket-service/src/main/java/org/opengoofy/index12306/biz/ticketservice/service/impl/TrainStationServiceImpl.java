@@ -63,11 +63,15 @@ public class TrainStationServiceImpl implements TrainStationService {
 
     @Override
     public List<RouteDTO> listTakeoutTrainStationRoute(String trainId, String departure, String arrival) {
+        // 根据trainId查询出所有的站点
         LambdaQueryWrapper<TrainStationDO> queryWrapper = Wrappers.lambdaQuery(TrainStationDO.class)
                 .eq(TrainStationDO::getTrainId, trainId)
                 .select(TrainStationDO::getDeparture);
+        // TrainStationDO中只departure字段有值，其他字段都是null
         List<TrainStationDO> trainStationDOList = trainStationMapper.selectList(queryWrapper);
+        // 取出所有的站点
         List<String> trainStationAllList = trainStationDOList.stream().map(TrainStationDO::getDeparture).collect(Collectors.toList());
+        // 计算出发站和终点站需要扣减余票的站点（包含出发站和终点站）
         return StationCalculateUtil.takeoutStation(trainStationAllList, departure, arrival);
     }
 }

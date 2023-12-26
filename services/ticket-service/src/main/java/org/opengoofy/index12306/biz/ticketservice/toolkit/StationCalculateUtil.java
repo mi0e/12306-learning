@@ -72,12 +72,16 @@ public final class StationCalculateUtil {
             return takeoutStationList;
         }
         if (startIndex != 0) {
+            // 计算起始站到出发站需要扣减余票的站点
+            // {0 ~ start - 1} ~ {start ~ n}
             for (int i = 0; i < startIndex; i++) {
                 for (int j = 1; j < stations.size() - startIndex; j++) {
                     takeoutStationList.add(new RouteDTO(stations.get(i), stations.get(startIndex + j)));
                 }
             }
         }
+        // 计算出发站到目标站需要扣减余票的站点
+        // {start ~ end} ~ {start + 1 ~ n};
         for (int i = startIndex; i <= endIndex; i++) {
             for (int j = i + 1; j < stations.size() && i < endIndex; j++) {
                 takeoutStationList.add(new RouteDTO(stations.get(i), stations.get(j)));

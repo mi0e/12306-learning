@@ -68,6 +68,7 @@ public class OrderItemServiceImpl extends ServiceImpl<OrderItemMapper, OrderItem
         if (orderDO == null) {
             throw new ServiceException(OrderCanalErrorCodeEnum.ORDER_CANAL_UNKNOWN_ERROR);
         }
+        // 分布式锁
         RLock lock = redissonClient.getLock(StrBuilder.create("order:status-reversal:order_sn_").append(requestParam.getOrderSn()).toString());
         if (!lock.tryLock()) {
             log.warn("订单重复修改状态，状态反转请求参数：{}", JSON.toJSONString(requestParam));

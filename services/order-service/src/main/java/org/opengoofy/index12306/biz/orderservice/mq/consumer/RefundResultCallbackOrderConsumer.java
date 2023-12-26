@@ -67,17 +67,23 @@ public class RefundResultCallbackOrderConsumer implements RocketMQListener<Messa
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void onMessage(MessageWrapper<RefundResultCallbackOrderEvent> message) {
+        // 从 MQ 中获取退款结果回调事件
         RefundResultCallbackOrderEvent refundResultCallbackOrderEvent = message.getMessage();
+        // 订单状态
         Integer status = refundResultCallbackOrderEvent.getRefundTypeEnum().getCode();
+        // 订单号
         String orderSn = refundResultCallbackOrderEvent.getOrderSn();
         List<OrderItemDO> orderItemDOList = new ArrayList<>();
+        // 乘车人信息
         List<TicketOrderPassengerDetailRespDTO> partialRefundTicketDetailList = refundResultCallbackOrderEvent.getPartialRefundTicketDetailList();
+        // 乘车人信息转换为订单明细
         partialRefundTicketDetailList.forEach(partial -> {
             OrderItemDO orderItemDO = new OrderItemDO();
             BeanUtil.convert(partial, orderItemDO);
             orderItemDOList.add(orderItemDO);
         });
         if (status.equals(OrderStatusEnum.PARTIAL_REFUND.getStatus())) {
+            // 部分退款
             OrderItemStatusReversalDTO partialRefundOrderItemStatusReversalDTO = OrderItemStatusReversalDTO.builder()
                     .orderSn(orderSn)
                     .orderStatus(OrderStatusEnum.PARTIAL_REFUND.getStatus())
@@ -86,6 +92,7 @@ public class RefundResultCallbackOrderConsumer implements RocketMQListener<Messa
                     .build();
             orderItemService.orderItemStatusReversal(partialRefundOrderItemStatusReversalDTO);
         } else if (status.equals(OrderStatusEnum.FULL_REFUND.getStatus())) {
+            // 全额退款
             OrderItemStatusReversalDTO fullRefundOrderItemStatusReversalDTO = OrderItemStatusReversalDTO.builder()
                     .orderSn(orderSn)
                     .orderStatus(OrderStatusEnum.FULL_REFUND.getStatus())
